@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Inventario v2</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root { --primary: #2563eb; --sidebar: #1e293b; --bg: #f1f5f9; --text: #0f172a; }
+    * { box-sizing: border-box; }
+    body { margin: 0; display: flex; font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); height: 100vh; }
+    
+    /* Sidebar Lateral */
+    aside { width: 260px; background: var(--sidebar); color: white; display: flex; flex-direction: column; padding: 25px; }
+    h2 { font-weight: 800; font-size: 1.2rem; margin-bottom: 40px; color: #60a5fa; letter-spacing: 1px; }
+    .menu-btn { 
+      background: none; border: none; color: #94a3b8; padding: 12px 15px; border-radius: 10px;
+      text-align: left; cursor: pointer; font-size: 15px; transition: 0.2s; margin-bottom: 5px;
+    }
+    .menu-btn:hover { background: rgba(255,255,255,0.05); color: white; }
+    .menu-btn.active { background: var(--primary); color: white; }
+
+    /* Contenido */
+    main { flex: 1; padding: 40px; overflow-y: auto; }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+    .status-pill { background: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono'; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #94a3b8; }
+    .dot.online { background: #22c55e; box-shadow: 0 0 10px #22c55e; }
+
+    /* Formulario y Tabla */
+    .glass-card { background: white; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 25px; }
+    .inputs { display: grid; grid-template-columns: 1fr 1fr auto; gap: 15px; margin-bottom: 30px; }
+    input { padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; outline: none; }
+    input:focus { border-color: var(--primary); }
+    button.add { background: var(--primary); color: white; border: none; padding: 0 25px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+    
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 15px; border-bottom: 2px solid var(--bg); color: #64748b; font-size: 13px; text-transform: uppercase; }
+    td { padding: 15px; border-bottom: 1px solid var(--bg); }
+    .del-btn { color: #ef4444; cursor: pointer; border: none; background: none; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<aside>
+  <h2>LOGÍSTICA<span>APP</span></h2>
+  <button class="menu-btn" onclick="goTo('conceptos')">📦 Conceptos</button>
+  <button class="menu-btn" onclick="goTo('destinos')">📍 Destinos</button>
+  <button class="menu-btn" onclick="goTo('productos')">🏷️ Productos</button>
+  <button class="menu-btn" onclick="goTo('unidades')">📏 Unidades</button>
+</aside>
+
+<main>
+  <div class="header">
+    <h1 id="pageTitle">Cargando...</h1>
+    <div class="status-pill">
+      <div id="statusDot" class="dot"></div>
+      <span id="statusLabel">Conectando</span>
+    </div>
+  </div>
+
+  <div class="glass-card">
+    <div class="inputs" id="formArea"></div>
+    <table>
+      <thead><tr id="tableHead"></tr></thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+const BASE_URL = "/api";
+let currentModule = "conceptos";
+
+const config = {
+  conceptos: { title: "Gestión de Conceptos", fields: [{k:"nombre", l:"Nombre"}, {k:"descripcion", l:"Descripción"}] },
+  destinos: { title: "Puntos de Destino", fields: [{k:"nombre", l:"Lugar"}, {k:"responsable", l:"Encargado"}] },
+  productos: { title: "Catálogo de Productos", fields: [{k:"nombre", l:"Producto"}, {k:"precio", l:"Costo ($)", t:"number"}] },
+  unidades: { title: "Unidades de Medida", fields: [{k:"nombre", l:"Unidad"}, {k:"abreviatura", l:"Abrev."}] }
+};
+
+async function check() {
+  try {
+    const r = await fetch(BASE_URL + "/health");
+    if(r.ok) {
+      document.getElementById("statusDot").classList.add("online");
+      document.getElementById("statusLabel").innerText = "SISTEMA ONLINE";
+    }
+  } catch(e) { console.log("Offline"); }
+}
+
+function goTo(mod) {
+  currentModule = mod;
+  const c = config[mod];
+  document.getElementById("pageTitle").innerText = c.title;
+  
+  // Renderizar Formulario
+  document.getElementById("formArea").innerHTML = c.fields.map(f => `
+    <input id="f-${f.k}" placeholder="${f.l}" type="${f.t || 'text'}">
+  `).join('') + `<button class="add" onclick="saveData()">Guardar</button>`;
+
+  // Renderizar Cabecera Tabla
+  document.getElementById("tableHead").innerHTML = `<th>ID</th>` + c.fields.map(f => `<th>${f.l}</th>`).join('') + `<th></th>`;
+  
+  // Actualizar Botones Sidebar
+  document.querySelectorAll('.menu-btn').forEach(b => {
+    b.classList.toggle('active', b.innerText.toLowerCase().includes(mod));
+  });
+
+  fetchData();
+}
+
+async function fetchData() {
+  const res = await fetch(`${BASE_URL}/${currentModule}`);
+  const list = await res.json();
+  const c = config[currentModule];
+  
+  document.getElementById("tableBody").innerHTML = list.map(row => `
+    <tr>
+      <td>#${row.id}</td>
+      ${c.fields.map(f => `<td>${row[f.k] || '---'}</td>`).join('')}
+      <td><button class="del-btn" onclick="deleteData(${row.id})">Borrar</button></td>
+    </tr>
+  `).join('');
+}
+
+async function saveData() {
+  const payload = {};
+  config[currentModule].fields.forEach(f => {
+    payload[f.k] = document.getElementById(`f-${f.k}`).value;
+  });
+
+  await fetch(`${BASE_URL}/${currentModule}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  
+  config[currentModule].fields.forEach(f => document.getElementById(`f-${f.k}`).value = "");
+  fetchData();
+}
+
+async function deleteData(id) {
+  if(confirm("¿Eliminar registro?")) {
+    await fetch(`${BASE_URL}/${currentModule}/${id}`, { method: 'DELETE' });
+    fetchData();
+  }
+}
+
+check();
+goTo('conceptos');
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "name": "sistema-logistica-pro",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/public/$1"
+    }
+  ],
+  "cleanUrls": true
+}

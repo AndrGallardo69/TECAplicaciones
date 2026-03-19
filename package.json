@@ -1,0 +1,18 @@
+{
+  "name": "logistica-v2-amigo",
+  "version": "2.0.0",
+  "description": "Sistema de gestion de suministros y logistica",
+  "main": "api/index.js",
+  "dependencies": {
+    "express": "^4.18.2",
+    "mysql2": "^3.6.5",
+    "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "start": "node api/index.js",
+    "dev": "node --watch api/index.js"
+  }
+}
