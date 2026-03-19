@@ -8,9 +8,7 @@
     "mysql2": "^3.6.5",
     "cors": "^2.8.5"
   },
-  "engines": {
-    "node": "24.x"
-  },
+
   "scripts": {
     "start": "node api/index.js",
     "dev": "node --watch api/index.js"
